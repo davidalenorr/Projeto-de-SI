@@ -29,6 +29,17 @@ def has_identity(username: str) -> bool:
     return os.path.exists(os.path.join(_user_dir(username), "identity.json"))
 
 
+def list_known_usernames():
+    """Usuários com identidade local neste dispositivo, usado pela tela
+    offline para saber de quem dá para abrir o histórico sem servidor."""
+    if not os.path.isdir(DATA_DIR):
+        return []
+    return sorted(
+        name for name in os.listdir(DATA_DIR)
+        if os.path.exists(os.path.join(DATA_DIR, name, "identity.json"))
+    )
+
+
 def create_identity(username: str):
     private_key, public_key_bytes = primitives.generate_identity_keypair()
     private_bytes = primitives.identity_private_key_to_bytes(private_key)

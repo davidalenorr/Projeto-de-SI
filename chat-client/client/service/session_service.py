@@ -2,10 +2,11 @@
 (Projeto 2, seção 7).
 
 Decide sozinho qual dos dois logins usar: se este dispositivo já tem uma
-identidade local para o nome de usuário informado, tenta o login sem senha,
-por desafio assinado (7.2); caso contrário, quem chama deve pedir a senha e
-usar login_new_device, que registra este dispositivo como o novo autenticado
-(7.3).
+identidade local para o nome de usuário informado, usa login_known_device,
+que confere a senha no servidor e também prova a posse do dispositivo por
+desafio assinado (7.2); caso contrário, quem chama deve usar
+login_new_device, que registra este dispositivo como o novo autenticado
+(7.3). Em ambos os casos a senha é exigida na tela de login.
 """
 import protocol
 from security import keystore, primitives
@@ -35,10 +36,10 @@ class SessionService:
             "public_key": primitives.b64e(public_key_bytes),
         })
 
-    def login_known_device(self, username: str) -> None:
+    def login_known_device(self, username: str, password: str) -> None:
         self._identity_private_key, self.identity_public_key = keystore.load_identity(username)
         self.username = username
-        self._connection.send_event(protocol.LOGIN_DEVICE, {"username": username})
+        self._connection.send_event(protocol.LOGIN_DEVICE, {"username": username, "password": password})
 
     def login_new_device(self, username: str, password: str) -> None:
         private_key, public_key_bytes = keystore.create_identity(username)

@@ -1,9 +1,18 @@
 """Tela principal: lista de contatos à esquerda, janela de conversa à
 direita (Projeto 1, seções 5.3 a 5.9).
+
+A lista de contatos marca com um ícone vermelho quem tem mensagem não lida:
+alguém cuja mensagem chegou (em tempo real ou da fila offline, seção 8.4 do
+Projeto 2) enquanto a conversa com ele não estava aberta na tela. O marcador
+some assim que o usuário seleciona aquele contato.
 """
 import tkinter as tk
 
 import protocol
+
+# Círculo vermelho: um emoji renderiza colorido independente da cor do texto
+# do item na Listbox, que só permite uma cor de primeiro plano por linha.
+_UNREAD_MARK = "\U0001F534"
 
 
 class MainScreen(tk.Frame):
@@ -15,6 +24,8 @@ class MainScreen(tk.Frame):
         self._conversation = conversation_service
         self._selected_contact = None
         self._typing_after_id = None
+        self._unread_contacts = set()
+        self._connection_lost = False
 
         self._build_widgets()
 
@@ -23,6 +34,7 @@ class MainScreen(tk.Frame):
         self._conversation.message_listeners.append(self._on_message)
         self._conversation.typing_listeners.append(self._on_typing)
         self._conversation.error_listeners.append(self._on_error)
+        app.on_connection_lost(self._on_connection_lost)
 
         self._refresh_contacts()
 
@@ -38,6 +50,10 @@ class MainScreen(tk.Frame):
 
         right = tk.Frame(self)
         right.pack(side="left", fill="both", expand=True)
+        self._offline_banner = tk.Label(
+            right, text="Sem conexão com o servidor: histórico local disponível, envio desativado.",
+            fg="white", bg="#b00020", anchor="w",
+        )
         self._typing_label = tk.Label(right, text="", fg="gray", anchor="w")
         self._typing_label.pack(fill="x", padx=8, pady=(8, 0))
         self._history = tk.Text(right, state="disabled", wrap="word")
@@ -49,7 +65,8 @@ class MainScreen(tk.Frame):
         self._entry.pack(side="left", fill="x", expand=True)
         self._entry.bind("<KeyRelease>", self._on_key_release)
         self._entry.bind("<Return>", lambda e: self._send())
-        tk.Button(entry_frame, text="Enviar", command=self._send).pack(side="left", padx=(8, 0))
+        self._send_button = tk.Button(entry_frame, text="Enviar", command=self._send)
+        self._send_button.pack(side="left", padx=(8, 0))
 
     def _refresh_contacts(self):
         self._contact_list.delete(0, tk.END)
@@ -57,15 +74,22 @@ class MainScreen(tk.Frame):
             if username == self._session.username:
                 continue
             status = "online" if self._contacts.is_online(username) else "offline"
-            self._contact_list.insert(tk.END, f"{username} ({status})")
+            mark = f"{_UNREAD_MARK} " if username in self._unread_contacts else ""
+            self._contact_list.insert(tk.END, f"{mark}{username} ({status})")
+            if username == self._selected_contact:
+                self._contact_list.selection_set(tk.END)
 
     def _on_select_contact(self, _event):
         selection = self._contact_list.curselection()
         if not selection:
             return
         label = self._contact_list.get(selection[0])
+        if label.startswith(_UNREAD_MARK):
+            label = label[len(_UNREAD_MARK) + 1:]
         username = label.rsplit(" (", 1)[0]
         self._selected_contact = username
+        self._unread_contacts.discard(username)
+        self._refresh_contacts()
         self._typing_label.config(text="")
         self._load_history(username)
         self._conversation.ensure_session(username)
@@ -79,8 +103,14 @@ class MainScreen(tk.Frame):
         self._history.config(state="disabled")
         self._history.see(tk.END)
 
+    def _on_connection_lost(self):
+        self._connection_lost = True
+        self._offline_banner.pack(fill="x", padx=8, pady=(8, 0), before=self._typing_label)
+        self._entry.config(state="disabled")
+        self._send_button.config(state="disabled")
+
     def _send(self):
-        if not self._selected_contact:
+        if self._connection_lost or not self._selected_contact:
             return
         text = self._entry.get().strip()
         if not text:
@@ -106,6 +136,9 @@ class MainScreen(tk.Frame):
             self._history.insert(tk.END, f"{who}: {text}\n")
             self._history.config(state="disabled")
             self._history.see(tk.END)
+        elif direction == "received":
+            self._unread_contacts.add(contact)
+            self._refresh_contacts()
 
     def _on_typing(self, contact, active):
         if contact == self._selected_contact:

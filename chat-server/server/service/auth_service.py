@@ -44,7 +44,9 @@ class AuthService:
         return os.urandom(32)
 
     def verify_device_signature(self, username: str, nonce: bytes, signature_b64: str) -> bool:
-        """Autenticação em dispositivo já conhecido, sem senha (seção 7.2)."""
+        """Desafio assinado do dispositivo já conhecido (seção 7.2), conferido
+        depois da senha: prova a posse do dispositivo além do que a senha
+        sozinha garante."""
         public_key_b64 = self.get_public_key(username)
         if public_key_b64 is None:
             return False

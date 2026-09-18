@@ -27,7 +27,12 @@ class Connection:
         self._rekey_event = threading.Event()
 
     def start(self) -> None:
-        self._sock = socket.create_connection((self._host, self._port))
+        # Timeout só na tentativa de conexão, para a interface não travar se o
+        # servidor estiver inacessível (modo offline, ver gui/offline_screen.py).
+        # Depois de conectado o socket volta a bloquear (sem timeout), porque a
+        # thread de recepção fica esperando indefinidamente por novos frames.
+        self._sock = socket.create_connection((self._host, self._port), timeout=5)
+        self._sock.settimeout(None)
         self._do_channel_handshake()
         threading.Thread(target=self._receive_loop, daemon=True).start()
         threading.Thread(target=self._send_loop, daemon=True).start()

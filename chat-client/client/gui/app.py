@@ -27,30 +27,41 @@ class AppEvents:
 
 
 class App:
-    def __init__(self, connection):
+    def __init__(self, connection=None):
         self.root = tk.Tk()
         self.root.title("Chat seguro")
         self.root.geometry("820x560")
         self.connection = connection
         self.events = AppEvents()
         self._current_frame = None
+        self._connection_lost_handler = None
         self.root.after(100, self._poll)
 
+    def on_connection_lost(self, callback) -> None:
+        """Define quem reage quando o socket com o servidor cai, além do
+        aviso padrão (usado pela tela atual para desabilitar o envio).
+        Substitui o handler anterior: só a tela em exibição deve reagir."""
+        self._connection_lost_handler = callback
+
     def _poll(self):
-        while True:
-            try:
-                event = self.connection.inbox.get_nowait()
-            except queue.Empty:
-                break
-            if event.get("type") == "connection_lost":
-                self.show_error("A conexão com o servidor foi perdida.")
-            else:
-                self.events.dispatch(event)
+        if self.connection is not None:
+            while True:
+                try:
+                    event = self.connection.inbox.get_nowait()
+                except queue.Empty:
+                    break
+                if event.get("type") == "connection_lost":
+                    self.show_error("A conexão com o servidor foi perdida.")
+                    if self._connection_lost_handler:
+                        self._connection_lost_handler()
+                else:
+                    self.events.dispatch(event)
         self.root.after(100, self._poll)
 
     def show(self, frame_factory) -> None:
         if self._current_frame is not None:
             self._current_frame.destroy()
+        self._connection_lost_handler = None
         self._current_frame = frame_factory(self.root)
         self._current_frame.pack(fill="both", expand=True)
 

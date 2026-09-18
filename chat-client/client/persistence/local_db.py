@@ -44,6 +44,13 @@ class LocalDatabase:
                 (contact, direction, timestamp, envelope["iv"], envelope["ciphertext"], envelope["mac"]),
             )
 
+    def list_contacts(self):
+        """Contatos com histórico salvo neste dispositivo, usado pelo modo
+        offline para saber quais conversas exibir sem depender do servidor."""
+        with self._lock:
+            cur = self._conn.execute("SELECT DISTINCT contact FROM messages ORDER BY contact")
+            return [row[0] for row in cur.fetchall()]
+
     def history_with(self, contact: str):
         with self._lock:
             cur = self._conn.execute(

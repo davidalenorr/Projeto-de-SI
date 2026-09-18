@@ -1,10 +1,11 @@
 """Tela de login e registro (Projeto 1, seções 5.1-5.2; Projeto 2, seções
 7.1-7.3).
 
-Na aba "Entrar", o usuário só digita o nome primeiro. Se este dispositivo já
-tem uma identidade local para esse nome, o login segue sem senha, por
-desafio assinado (7.2). Caso contrário, o campo de senha aparece: é o caso de
-um dispositivo novo (7.3), que também precisa da senha.
+Na aba "Entrar", a senha é sempre exigida. Se este dispositivo já tem uma
+identidade local para o usuário informado, a senha é conferida no servidor e,
+por cima dela, o dispositivo ainda prova sua posse por desafio assinado
+(7.2). Caso contrário, é o caso de um dispositivo novo (7.3), que registra a
+nova chave pública a partir da mesma senha.
 """
 import tkinter as tk
 from tkinter import ttk
@@ -34,32 +35,23 @@ class LoginScreen(tk.Frame):
         username_entry = tk.Entry(frame)
         username_entry.grid(row=0, column=1, padx=10, pady=5)
 
-        password_label = tk.Label(frame, text="Senha (dispositivo novo)")
+        tk.Label(frame, text="Senha").grid(row=1, column=0, sticky="w", padx=10, pady=5)
         password_entry = tk.Entry(frame, show="*")
+        password_entry.grid(row=1, column=1, padx=10, pady=5)
         status_label = tk.Label(frame, text="", fg="red", wraplength=280, justify="left")
         status_label.grid(row=2, column=0, columnspan=2, padx=10)
 
         def submit():
             username = username_entry.get().strip()
-            if not username:
+            password = password_entry.get()
+            if not username or not password:
                 return
             if self._session_service.is_known_device(username):
-                self._session_service.login_known_device(username)
+                self._session_service.login_known_device(username, password)
                 status_label.config(fg="black", text="Autenticando com este dispositivo...")
-                return
-            if not password_entry.winfo_ismapped():
-                password_label.grid(row=1, column=0, sticky="w", padx=10, pady=5)
-                password_entry.grid(row=1, column=1, padx=10, pady=5)
-                status_label.config(
-                    fg="black",
-                    text="Dispositivo novo para este usuário: informe a senha e clique em Entrar de novo.",
-                )
-                return
-            password = password_entry.get()
-            if not password:
-                return
-            self._session_service.login_new_device(username, password)
-            status_label.config(fg="black", text="Autenticando...")
+            else:
+                self._session_service.login_new_device(username, password)
+                status_label.config(fg="black", text="Autenticando...")
 
         tk.Button(frame, text="Entrar", command=submit).grid(row=3, column=0, columnspan=2, pady=10)
         self._login_status_label = status_label

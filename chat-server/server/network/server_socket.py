@@ -109,6 +109,9 @@ class ClientHandler(threading.Thread):
         if self._auth.get_public_key(username) is None:
             self.send_event(protocol.LOGIN_RESPONSE, {"success": False, "reason": "usuário não existe"})
             return
+        if not self._auth.verify_password(username, event["password"]):
+            self.send_event(protocol.LOGIN_RESPONSE, {"success": False, "reason": "usuário ou senha inválidos"})
+            return
         self._pending_login_username = username
         self._pending_nonce = self._auth.new_nonce()
         self.send_event(protocol.LOGIN_CHALLENGE, {"nonce": primitives.b64e(self._pending_nonce)})
